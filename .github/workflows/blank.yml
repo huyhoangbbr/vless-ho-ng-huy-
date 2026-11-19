@@ -1,27 +1,42 @@
-name: HHVPN
-options:
-  deploymentTarget:
-    iOS: "16.0"
-targets:
-  HHVPN:
-    type: application
-    platform: iOS
-    sources:
-      - Sources
-    info:
-      path: Generated/Info.plist
-      properties:
-        CFBundleDisplayName: hh vpn
-        UILaunchScreen: {}
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.hhvpn.preview
-        MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
-        SWIFT_VERSION: "5.0"
-        TARGETED_DEVICE_FAMILY: "1"
-schemes:
-  HHVPN:
-    build:
-      targets:
-        HHVPN: all
+name: Build unsigned iPhone IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build for iPhone without signing
+        run: |
+          xcodebuild -project HHVPN.xcodeproj -scheme HHVPN \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/hh-vpn-build" \
+            CODE_SIGNING_ALLOWED=NO ARCHS=arm64 build
+
+      - name: Package IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/hh-vpn-build/Build/Products/Release-iphoneos/HHVPN.app" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry "$GITHUB_WORKSPACE/hh-vpn-unsigned.ipa" Payload
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: hh-vpn-unsigned
+          path: hh-vpn-unsigned.ipa

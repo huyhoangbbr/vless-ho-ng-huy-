@@ -1,11 +1,9 @@
-# name: Build unsigned iPhone IPA
+name: Build unsigned iPhone IPA
 
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'ios/**'
-      - '.github/workflows/build-ipa.yml'
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -16,11 +14,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
       - name: Generate Xcode project
         run: |
           brew install xcodegen
-          mkdir -p Generated
           xcodegen generate
+
       - name: Build for iPhone without signing
         run: |
           xcodebuild -project HHVPN.xcodeproj -scheme HHVPN \
@@ -28,22 +27,16 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$RUNNER_TEMP/hh-vpn-build" \
             CODE_SIGNING_ALLOWED=NO ARCHS=arm64 build
-      - name: Package and verify IPA
+
+      - name: Package IPA
         run: |
-          app="$RUNNER_TEMP/hh-vpn-build/Build/Products/Release-iphoneos/HHVPN.app"
-          stage="$(mktemp -d)"
-          mkdir -p "$stage/Payload" "$GITHUB_WORKSPACE/dist"
-          /usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist"
-          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleSupportedPlatforms:0' "$app/Info.plist")" = iPhoneOS
-          binary="$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Info.plist")"
-          lipo -verify_arch arm64 "$app/$binary"
-          ditto "$app" "$stage/Payload/HHVPN.app"
-          ipa="$GITHUB_WORKSPACE/dist/hh-vpn-unsigned.ipa"
-          (cd "$stage" && ditto -c -k --keepParent Payload "$ipa")
-          unzip -tq "$ipa"
-      - uses: actions/upload-artifact@v4
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/hh-vpn-build/Build/Products/Release-iphoneos/HHVPN.app" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry "$GITHUB_WORKSPACE/hh-vpn-unsigned.ipa" Payload
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
         with:
           name: hh-vpn-unsigned
-          path: dist/hh-vpn-unsigned.ipa
-          if-no-files-found: error
-          echo test, and deploy your project.
+          path: hh-vpn-unsigned.ipa

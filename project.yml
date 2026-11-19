@@ -1,0 +1,27 @@
+name: HHVPN
+options:
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  HHVPN:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: hh vpn
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hhvpn.preview
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  HHVPN:
+    build:
+      targets:
+        HHVPN: all
